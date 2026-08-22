@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { SummarizeResponse, SummaryLength } from "@/lib/client-types";
+import { useToast } from "./Toast";
+import { CheckCircleIcon, CopyIcon, ChevronDownIcon, SparkleIcon, FilePdfIcon, FileImageIcon } from "./icons";
 
 interface SummaryViewProps {
   result: SummarizeResponse;
@@ -18,53 +20,86 @@ const LENGTH_OPTIONS: { value: SummaryLength; label: string }[] = [
   { value: "long", label: "Long" },
 ];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({
+  title,
+  children,
+  className = "",
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {title}
-      </h2>
+    <section
+      className={`rounded-[var(--radius-lg)] border border-(--color-border) bg-(--color-surface) p-5 sm:p-6 ${className}`}
+    >
+      <h2 className="mb-3 text-xs font-semibold tracking-wide text-(--color-text-muted) uppercase">{title}</h2>
       {children}
     </section>
   );
 }
 
-export function SummaryView({ result, length, onLengthChange, onRegenerate, isRegenerating, onReset }: SummaryViewProps) {
-  const [showSource, setShowSource] = useState(false);
-  const [copied, setCopied] = useState(false);
+function useCopy() {
+  const { showToast } = useToast();
+  const [justCopiedKey, setJustCopiedKey] = useState<string | null>(null);
 
-  async function handleCopy() {
-    const text = [
-      `Summary:\n${result.summary}`,
-      `Key Points:\n${result.keyPoints.map((p) => `- ${p}`).join("\n")}`,
-      `Main Ideas:\n${result.mainIdeas.map((p) => `- ${p}`).join("\n")}`,
-      `Improvement Suggestions:\n${result.improvementSuggestions.map((p) => `- ${p}`).join("\n")}`,
-    ].join("\n\n");
+  async function copy(key: string, text: string, label: string) {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setJustCopiedKey(key);
+      showToast(`${label} copied to clipboard`, "success");
+      setTimeout(() => setJustCopiedKey((k) => (k === key ? null : k)), 1600);
     } catch {
-      // Clipboard API can be unavailable (permissions, insecure context) — fail silently, non-critical.
+      // Clipboard API can be unavailable (permissions, insecure context) — surface it, non-fatal.
+      showToast("Couldn't copy — your browser blocked clipboard access", "error");
     }
   }
 
+  return { copy, justCopiedKey };
+}
+
+export function SummaryView({ result, length, onLengthChange, onRegenerate, isRegenerating, onReset }: SummaryViewProps) {
+  const [showSource, setShowSource] = useState(false);
+  const { copy, justCopiedKey } = useCopy();
+
+  const fullText = [
+    `Summary:\n${result.summary}`,
+    `Key Points:\n${result.keyPoints.map((p) => `- ${p}`).join("\n")}`,
+    `Main Ideas:\n${result.mainIdeas.map((p) => `- ${p}`).join("\n")}`,
+    `Improvement Suggestions:\n${result.improvementSuggestions.map((p) => `- ${p}`).join("\n")}`,
+  ].join("\n\n");
+
+  const keyPointsText = result.keyPoints.map((p, i) => `${i + 1}. ${p}`).join("\n");
+
+  const isImage = result.extractionMethod === "ocr";
+  const extractionLabel =
+    result.extractionMethod === "ocr"
+      ? "Extracted via OCR"
+      : result.extractionMethod === "pdf-ocr"
+        ? "Scanned PDF — extracted via OCR"
+        : "Extracted from PDF text";
+
   return (
-    <div className="flex w-full flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{result.filename}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {result.extractionMethod === "ocr"
-              ? "Extracted via OCR"
-              : result.extractionMethod === "pdf-ocr"
-                ? "Scanned PDF — extracted via OCR"
-                : "Extracted from PDF text"}
-            {result.pageCount ? ` · ${result.pageCount} page${result.pageCount === 1 ? "" : "s"}` : ""}
-          </p>
+    <div className="flex w-full flex-col gap-5">
+      {/* Document header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-lg)] border border-(--color-border) bg-(--color-surface) p-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-(--color-info-bg) text-(--color-primary)">
+            {isImage ? <FileImageIcon className="h-5 w-5" /> : <FilePdfIcon className="h-5 w-5" />}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-(--color-text)" title={result.filename}>
+              {result.filename}
+            </p>
+            <p className="text-xs text-(--color-text-muted)">
+              {extractionLabel}
+              {result.pageCount ? ` · ${result.pageCount} page${result.pageCount === 1 ? "" : "s"}` : ""}
+            </p>
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
-          <div role="group" aria-label="Summary length" className="flex rounded-lg border border-slate-300 p-0.5 dark:border-slate-700">
+          <div role="group" aria-label="Summary length" className="flex rounded-[var(--radius-md)] border border-(--color-border) bg-(--color-bg) p-0.5">
             {LENGTH_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -72,10 +107,10 @@ export function SummaryView({ result, length, onLengthChange, onRegenerate, isRe
                 aria-pressed={length === opt.value}
                 disabled={isRegenerating}
                 onClick={() => onLengthChange(opt.value)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`rounded-[calc(var(--radius-md)-2px)] px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-primary) disabled:cursor-not-allowed disabled:opacity-50 ${
                   length === opt.value
-                    ? "bg-indigo-600 text-white"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                    ? "bg-(--color-primary) text-(--color-primary-fg)"
+                    : "text-(--color-text-muted) hover:bg-(--color-surface-elevated) hover:text-(--color-text)"
                 }`}
               >
                 {opt.label}
@@ -86,7 +121,7 @@ export function SummaryView({ result, length, onLengthChange, onRegenerate, isRe
             type="button"
             onClick={onRegenerate}
             disabled={isRegenerating}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="rounded-[var(--radius-md)] border border-(--color-border) px-3 py-1.5 text-xs font-medium text-(--color-text) transition-colors hover:bg-(--color-surface-elevated) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-primary) disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isRegenerating ? "Regenerating…" : "Regenerate"}
           </button>
@@ -94,67 +129,120 @@ export function SummaryView({ result, length, onLengthChange, onRegenerate, isRe
       </div>
 
       {result.warning && (
-        <p role="status" className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+        <p
+          role="status"
+          className="rounded-[var(--radius-md)] border border-(--color-warning-border) bg-(--color-warning-bg) px-4 py-2.5 text-sm text-(--color-warning)"
+        >
           {result.warning}
         </p>
       )}
 
-      <Section title="Summary">
-        <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-200">{result.summary}</p>
-      </Section>
+      {/* Summary — visually dominant */}
+      <section className="rounded-[var(--radius-xl)] border border-(--color-border) bg-(--color-surface) p-6 shadow-[var(--shadow-token-sm)] sm:p-8">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold tracking-wide text-(--color-text-muted) uppercase">Summary</h2>
+          <button
+            type="button"
+            onClick={() => copy("summary", result.summary, "Summary")}
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 text-xs font-medium text-(--color-text-muted) transition-colors hover:bg-(--color-surface-elevated) hover:text-(--color-text) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-primary)"
+          >
+            {justCopiedKey === "summary" ? (
+              <>
+                <CheckCircleIcon className="h-3.5 w-3.5 text-(--color-success)" /> Copied
+              </>
+            ) : (
+              <>
+                <CopyIcon className="h-3.5 w-3.5" /> Copy
+              </>
+            )}
+          </button>
+        </div>
+        <p className="whitespace-pre-line text-base leading-relaxed text-(--color-text)">{result.summary}</p>
+      </section>
 
-      <Section title="Key Points">
-        <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-700 dark:text-slate-200">
+      {/* Key points */}
+      <SectionCard title="Key Points">
+        <ol className="flex flex-col gap-3">
           {result.keyPoints.map((point, i) => (
-            <li key={i}>{point}</li>
+            <li key={i} className="flex gap-3 text-sm leading-relaxed text-(--color-text)">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-(--color-info-bg) text-[11px] font-semibold text-(--color-primary)">
+                {i + 1}
+              </span>
+              <span>{point}</span>
+            </li>
           ))}
-        </ul>
-      </Section>
+        </ol>
+      </SectionCard>
 
-      <Section title="Main Ideas">
-        <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-700 dark:text-slate-200">
+      {/* Main ideas */}
+      <SectionCard title="Main Ideas">
+        <ul className="flex flex-col gap-2.5">
           {result.mainIdeas.map((idea, i) => (
-            <li key={i}>{idea}</li>
+            <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-(--color-text)">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-(--color-text-faint)" />
+              <span>{idea}</span>
+            </li>
           ))}
         </ul>
-      </Section>
+      </SectionCard>
 
-      <Section title="Improvement Suggestions">
-        <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-700 dark:text-slate-200">
+      {/* Improvement suggestions — visually distinct, clearly generated, not authoritative */}
+      <section className="rounded-[var(--radius-lg)] border border-(--color-info-border) bg-(--color-info-bg) p-5 sm:p-6">
+        <div className="mb-3 flex items-center gap-2">
+          <SparkleIcon className="h-4 w-4 text-(--color-primary)" />
+          <h2 className="text-xs font-semibold tracking-wide text-(--color-primary) uppercase">Improvement Suggestions</h2>
+        </div>
+        <ul className="flex flex-col gap-2.5">
           {result.improvementSuggestions.map((s, i) => (
-            <li key={i}>{s}</li>
+            <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-(--color-text)">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-(--color-primary)" />
+              <span>{s}</span>
+            </li>
           ))}
         </ul>
-      </Section>
+        <p className="mt-4 text-xs text-(--color-text-muted)">AI-generated suggestions — review before acting on them.</p>
+      </section>
 
-      <Section title="Source Text">
+      {/* Source text */}
+      <SectionCard title="Source Text">
         <button
           type="button"
           onClick={() => setShowSource((s) => !s)}
           aria-expanded={showSource}
-          className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-primary) hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-primary) rounded-[var(--radius-sm)]"
         >
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${showSource ? "rotate-180" : ""}`} />
           {showSource ? "Hide extracted text" : "Show extracted text"}
         </button>
         {showSource && (
-          <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-950 dark:text-slate-400">
+          <pre className="mt-3 max-h-72 overflow-auto rounded-[var(--radius-md)] border border-(--color-border) bg-(--color-bg) p-4 text-xs leading-relaxed whitespace-pre-wrap break-words text-(--color-text-muted)">
             {result.sourceTextPreview}
           </pre>
         )}
-      </Section>
+      </SectionCard>
 
-      <div className="flex flex-wrap gap-3">
+      {/* Action bar */}
+      <div className="flex flex-wrap gap-3 pt-1">
         <button
           type="button"
-          onClick={handleCopy}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+          onClick={() => copy("full", fullText, "Full summary")}
+          className="inline-flex items-center gap-2 rounded-[var(--radius-md)] bg-(--color-primary) px-4 py-2.5 text-sm font-medium text-(--color-primary-fg) transition-colors hover:bg-(--color-primary-hover) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-primary) focus-visible:ring-offset-2"
         >
-          {copied ? "Copied!" : "Copy Summary"}
+          {justCopiedKey === "full" ? <CheckCircleIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+          Copy Summary
+        </button>
+        <button
+          type="button"
+          onClick={() => copy("keypoints", keyPointsText, "Key points")}
+          className="inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-(--color-border) px-4 py-2.5 text-sm font-medium text-(--color-text) transition-colors hover:bg-(--color-surface-elevated) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-primary)"
+        >
+          {justCopiedKey === "keypoints" ? <CheckCircleIcon className="h-4 w-4 text-(--color-success)" /> : <CopyIcon className="h-4 w-4" />}
+          Copy Key Points
         </button>
         <button
           type="button"
           onClick={onReset}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="ml-auto rounded-[var(--radius-md)] border border-(--color-border) px-4 py-2.5 text-sm font-medium text-(--color-text) transition-colors hover:bg-(--color-surface-elevated) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-primary)"
         >
           New Document
         </button>

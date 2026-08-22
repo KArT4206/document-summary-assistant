@@ -44,5 +44,15 @@ setInterval(() => {
 
 export function getClientKey(headers: Headers): string {
   const forwarded = headers.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || "unknown";
+  const first = forwarded?.split(",")[0]?.trim();
+  if (first) return first;
+
+  // Some reverse proxies (e.g. nginx) set x-real-ip instead of/alongside x-forwarded-for.
+  const realIp = headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
+  // No proxy header present at all — most likely a direct connection with no
+  // reverse proxy in front of the app. All such requests share one bucket,
+  // which is a known limitation for that deployment shape (see README).
+  return "unknown";
 }

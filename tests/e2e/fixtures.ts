@@ -21,9 +21,16 @@ export function ensureFixtures() {
 
   const oversized = write("oversized.pdf", Buffer.alloc(16 * 1024 * 1024, 1));
 
+  // Regression fixture for a real bug found during security review: Next.js's
+  // proxy/middleware layer silently truncates request bodies over 10MB by
+  // default (proxyClientMaxBodySize), which broke uploads in the 10-15MB
+  // range even though they're under the app's advertised 15MB limit. Fixed
+  // in next.config.ts; this fixture (~12MB, under the limit) proves it stays fixed.
+  const nearLimit = write("near-limit.pdf", Buffer.alloc(12 * 1024 * 1024, 2));
+
   const unsupported = write("unsupported.txt", Buffer.from("plain text file, wrong extension for this app"));
 
-  return { validPdf, oversized, unsupported };
+  return { validPdf, oversized, unsupported, nearLimit };
 }
 
 export async function ensureImageFixture(): Promise<string> {

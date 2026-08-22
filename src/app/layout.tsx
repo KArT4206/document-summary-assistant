@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { headers } from "next/headers";
+import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
-// Forces per-request rendering so the CSP nonce set in middleware can actually
-// be attached to Next.js's own inline hydration scripts — a statically
-// prerendered page bakes its HTML once at build time and can never carry a
-// fresh per-request nonce.
+// Required so the CSP nonce set per-request in src/proxy.ts is actually
+// available when this page renders — see the comment in proxy.ts for why.
 export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
@@ -25,16 +23,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col" data-csp-nonce={nonce}>
-        {children}
+      <body className="min-h-full flex flex-col">
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

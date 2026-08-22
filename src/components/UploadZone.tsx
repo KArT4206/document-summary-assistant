@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { ACCEPTED_EXTENSIONS, MAX_FILE_MB } from "@/lib/client-types";
+import { UploadIcon, AlertCircleIcon } from "./icons";
 
 interface UploadZoneProps {
   onFileSelected: (file: File) => void;
@@ -61,30 +62,43 @@ export function UploadZone({ onFileSelected, disabled }: UploadZoneProps) {
           validateAndEmit(e.dataTransfer.files?.[0]);
         }}
         onClick={() => !disabled && inputRef.current?.click()}
-        className={`flex min-h-56 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+        className={`group relative flex min-h-72 flex-col items-center justify-center gap-4 rounded-[var(--radius-xl)] border-2 border-dashed p-8 text-center transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-primary) focus-visible:ring-offset-2 sm:min-h-80 sm:p-12 ${
           disabled
-            ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60 dark:border-slate-800 dark:bg-slate-900"
+            ? "cursor-not-allowed border-(--color-border) bg-(--color-surface) opacity-50"
             : isDragOver
-              ? "cursor-pointer border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-              : "cursor-pointer border-slate-300 bg-white hover:border-indigo-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+              ? "cursor-pointer scale-[1.005] border-(--color-primary) bg-(--color-info-bg)"
+              : "cursor-pointer border-(--color-border-strong) bg-(--color-surface) hover:border-(--color-primary) hover:bg-(--color-surface-elevated)"
         }`}
       >
-        <svg
-          aria-hidden="true"
-          className="h-10 w-10 text-slate-400"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          viewBox="0 0 24 24"
+        <div
+          className={`flex h-14 w-14 items-center justify-center rounded-full transition-colors ${
+            isDragOver ? "bg-(--color-primary) text-(--color-primary-fg)" : "bg-(--color-info-bg) text-(--color-primary)"
+          }`}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12M12 16.5V3" />
-        </svg>
-        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-          {isDragOver ? "Drop your file here" : "Drag & drop a document, or click to browse"}
-        </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          PDF, PNG, JPEG, or WEBP · up to {MAX_FILE_MB}MB
-        </p>
+          <UploadIcon className="h-6 w-6" />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <p className="text-base font-medium text-(--color-text)">
+            {isDragOver ? "Drop to upload" : "Drag & drop your document here"}
+          </p>
+          <p className="text-sm text-(--color-text-muted)">
+            {isDragOver ? "Release to start" : "or click anywhere in this area to browse"}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+          {["PDF", "PNG", "JPEG", "WEBP"].map((fmt) => (
+            <span
+              key={fmt}
+              className="rounded-full border border-(--color-border) bg-(--color-surface-elevated) px-2.5 py-1 text-xs font-medium text-(--color-text-muted)"
+            >
+              {fmt}
+            </span>
+          ))}
+          <span className="px-1 text-xs text-(--color-text-faint)">up to {MAX_FILE_MB}MB</span>
+        </div>
+
         <input
           ref={inputRef}
           type="file"
@@ -95,9 +109,13 @@ export function UploadZone({ onFileSelected, disabled }: UploadZoneProps) {
         />
       </div>
       {localError && (
-        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
-          {localError}
-        </p>
+        <div
+          role="alert"
+          className="mt-3 flex items-start gap-2 rounded-[var(--radius-md)] border border-(--color-danger-border) bg-(--color-danger-bg) px-4 py-3 text-sm text-(--color-danger)"
+        >
+          <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{localError}</span>
+        </div>
       )}
     </div>
   );
