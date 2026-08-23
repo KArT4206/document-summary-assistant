@@ -134,7 +134,7 @@ Uses the **Google Gemini API free tier** (`gemini-3.6-flash` by default) — thi
 
 ## Testing
 
-**96 unit/integration tests (Vitest) and 30 end-to-end tests (Playwright, across desktop + mobile viewports) — all passing** (up from 71 unit/integration with the addition of `OllamaProvider` and `AIRouter` test suites). See [docs/TEST_CASES.md](docs/TEST_CASES.md) for the full breakdown and [docs/SECURITY_TEST_REPORT.md](docs/SECURITY_TEST_REPORT.md) for the security-specific matrix.
+**105 unit/integration tests (Vitest) and 30 end-to-end tests (Playwright, across desktop + mobile viewports) — all passing**. See [docs/TEST_CASES.md](docs/TEST_CASES.md) for the full breakdown and [docs/SECURITY_TEST_REPORT.md](docs/SECURITY_TEST_REPORT.md) for the security-specific matrix.
 
 ## Screenshots
 
