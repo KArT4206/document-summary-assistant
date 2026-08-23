@@ -54,6 +54,10 @@ See [DATA_FLOW.md](DATA_FLOW.md) for the three trust boundaries (upload, validat
 | Secrets leaking into the prompt | The API key is never included in any prompt; verified by automated test (`tests/integration/prompt-injection.test.ts`) | None identified |
 | Unbounded AI cost from huge input | Extracted text capped at 200,000 chars before reaching the AI layer, then truncated again to 60,000 chars in the provider itself | Low |
 | AI provider failure/timeout/rate limit crashing the request or leaking internals | All Gemini SDK errors mapped to safe `AppError`s; verified by automated tests with a mocked SDK **and live against the real API** (missing key, invalid key, forced timeout, and a real deprecated-model 404 were all observed live and correctly mapped) | Low — the live verification covered missing/invalid key, timeout, and one real provider-error case; the Gemini-specific 429 (as opposed to the app's own rate limiter) was not observed live, only mocked (see [SECURITY_TEST_REPORT.md](SECURITY_TEST_REPORT.md) NT-002) |
+| Gemini quota/outage leaving the user with no summary at all | `AIRouter` falls back to a local Ollama model (`gemma4:e4b`) on quota/rate-limit or a transient outage, but only when `OLLAMA_FALLBACK_ENABLED=true` — see the "AI Router" section of [ARCHITECTURE.md](ARCHITECTURE.md) and [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) for the full decision tree | Medium-High in production, where the flag defaults to disabled and there is no assumed private Ollama server — Gemini quota exhaustion surfaces `AI_UNAVAILABLE` directly rather than crashing or silently doing nothing, but doesn't get you a summary either, until a deployment explicitly enables the flag against a real private Ollama server. Low in local development, where a developer opts in via `OLLAMA_FALLBACK_ENABLED=true` and Ollama runs on the same machine. |
+| A permanently misconfigured Gemini key being silently masked by the fallback, hiding a broken deployment | `AI_CONFIG_ERROR` is explicitly excluded from the router's fallback trigger set — verified by automated test | None identified |
+| Ollama fallback becoming reachable from the browser, or from outside the deployment's private network | `OLLAMA_BASE_URL` is read server-side only, inside the Node-runtime route handler; no client code references it; never included in any API response | None identified |
+| Production silently assuming a local Ollama server exists (e.g. defaulting fallback to "on") | `OLLAMA_FALLBACK_ENABLED` defaults to disabled; the gate is checked before any network call, including `isOllamaAvailable()`, so a deployment with the flag left at its default never attempts to reach `127.0.0.1:11434` or any other address | None identified |
 
 ### 4. Authentication
 
@@ -71,7 +75,7 @@ Not applicable — this application has no accounts, no login, no sessions. This
 
 Not applicable in the traditional sense — no database, no persistent file storage. The main "storage" risk is in-memory data lingering longer than necessary; mitigated by processing being fully synchronous within one request and not caching file contents across requests.
 
-### 7. External providers (Google Gemini)
+### 7. External providers (Google Gemini, local Ollama fallback)
 
 | Threat | Mitigation | Residual risk |
 |---|---|---|

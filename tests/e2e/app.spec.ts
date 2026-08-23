@@ -51,7 +51,7 @@ test.describe("Upload -> processing -> result/error journey", () => {
     // Resolves within a reasonable time to either the summary view or a readable error.
     const summaryHeading = page.getByRole("heading", { name: "Summary", exact: true });
     const errorAlert = page.locator("main").getByRole("alert");
-    await expect(summaryHeading.or(errorAlert)).toBeVisible({ timeout: 45_000 });
+    await expect(summaryHeading.or(errorAlert)).toBeVisible({ timeout: 90_000 });
   });
 
   test("a failed request shows a Try Again button that returns to the upload screen", async ({ page }) => {
@@ -96,7 +96,7 @@ test.describe("Image OCR upload", () => {
     await expect(page.getByRole("status")).toBeVisible();
     const summaryHeading = page.getByRole("heading", { name: "Summary", exact: true });
     const errorAlert = page.locator("main").getByRole("alert");
-    await expect(summaryHeading.or(errorAlert)).toBeVisible({ timeout: 45_000 });
+    await expect(summaryHeading.or(errorAlert)).toBeVisible({ timeout: 90_000 });
   });
 });
 

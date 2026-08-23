@@ -38,6 +38,8 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local AI coding assistant configuration (developer-machine only)
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

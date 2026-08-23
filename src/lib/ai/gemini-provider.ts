@@ -47,7 +47,10 @@ function getClient(): GoogleGenAI {
   if (client) return client;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new AppError("AI_PROVIDER_ERROR", "The summarization service is not configured.");
+    // Permanent misconfiguration, not a transient outage — the AI router
+    // must never silently paper over this by falling back to another
+    // provider; it needs to be surfaced and fixed.
+    throw new AppError("AI_CONFIG_ERROR", "The summarization service is not configured.");
   }
   client = new GoogleGenAI({ apiKey, httpOptions: { timeout: REQUEST_TIMEOUT_MS } });
   return client;
@@ -116,6 +119,11 @@ function mapGeminiError(err: unknown): AppError {
     }
     if (err.status === 408) {
       return new AppError("AI_TIMEOUT", "The summarization service took too long to respond. Please try again.");
+    }
+    if (err.status === 401 || err.status === 403) {
+      // Invalid/revoked key or permission problem — permanent configuration
+      // issue, not something a fallback provider or a retry can paper over.
+      return new AppError("AI_CONFIG_ERROR", "The summarization service is not configured correctly.");
     }
     return new AppError("AI_PROVIDER_ERROR", "The summarization service is temporarily unavailable.");
   }

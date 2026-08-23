@@ -40,6 +40,9 @@ See [`.env.example`](.env.example):
 |---|---|---|
 | `GEMINI_API_KEY` | Yes | Server-side only. Never sent to the browser. Free tier — see [docs/PRIVACY_AND_DATA_HANDLING.md](docs/PRIVACY_AND_DATA_HANDLING.md) for the rate/quota limits this implies. |
 | `GEMINI_MODEL` | No | Defaults to `gemini-3.6-flash`. |
+| `OLLAMA_FALLBACK_ENABLED` | No | Defaults to **disabled** (unset or anything other than the literal string `true`). When disabled, the router never attempts a network call to `OLLAMA_BASE_URL` — not even the availability check. Set to `true` only when `OLLAMA_BASE_URL` genuinely points to a reachable Ollama server: your own machine in local development, or a real private Ollama deployment in production. See [AI Router](#ai-router-gemini-primary-ollama-fallback) below. |
+| `OLLAMA_BASE_URL` | No | Defaults to `http://127.0.0.1:11434`. Only used when `OLLAMA_FALLBACK_ENABLED=true`, and even then only after Gemini indicates quota/rate exhaustion or a transient outage. Server-side only — the browser never calls this URL. |
+| `OLLAMA_MODEL` | No | Defaults to `gemma4:e4b`. |
 
 ## Scripts
 
@@ -65,12 +68,34 @@ POST /api/summarize  (Next.js Route Handler, Node runtime)
         ├─ validateUpload()      → size + magic-byte MIME check
         ├─ extractText()         → pdf-parse (PDF) or tesseract.js (image)
         ├─ rate limit check (AI-specific)
-        └─ AIProvider.generateSummary()  → Gemini, Structured Outputs, Zod-validated
+        └─ AIProvider.generateSummary()  → AI Router (Gemini → Ollama fallback), Structured Outputs, Zod-validated
         ▼
 JSON response { summary, keyPoints, mainIdeas, improvementSuggestions, ... }
 ```
 
 The AI layer is behind an `AIProvider` interface (`src/lib/ai/types.ts`) — swapping providers means adding a new class, not touching the route handler.
+
+### AI Router (Gemini primary, Ollama fallback)
+
+```
+AI Router (src/lib/ai/router.ts)
+   │
+   ├── GeminiProvider   — primary. Free-tier Google Gemini API.
+   │
+   └── OllamaProvider   — fallback only. A local model (default: gemma4:e4b)
+                           served by a private Ollama instance the Next.js
+                           server process can reach. The browser never talks
+                           to Ollama directly.
+```
+
+- **Normal path**: Gemini succeeds → its result is returned. Ollama is never touched.
+- **Fallback gate — `OLLAMA_FALLBACK_ENABLED`**: fallback is opt-in and **disabled by default**. When disabled, a fallback-eligible Gemini failure goes straight to a friendly `AI_UNAVAILABLE` response — the router never attempts any network call to `OLLAMA_BASE_URL`, not even the lightweight availability check. This is deliberate: `127.0.0.1` has no meaning inside a deployed environment, so a production deployment must never silently assume a local Ollama server exists.
+- **Fallback triggers** (only reached when the gate above is enabled): `AI_RATE_LIMITED` (quota/rate exhaustion) and `AI_PROVIDER_ERROR`/`AI_TIMEOUT` (a transient outage — retried once on Gemini first before falling back).
+- **Never falls back for**: `AI_CONFIG_ERROR` (missing/invalid Gemini API key) or `AI_INVALID_RESPONSE` (our own schema rejecting the model's output) — both are surfaced directly regardless of the fallback gate. A permanently misconfigured deployment must be visibly broken, not silently masked by a weaker fallback model that happens to "work."
+- **If Ollama is also unreachable or fails** (fallback enabled): a single friendly `AI_UNAVAILABLE` error is returned — never which provider failed, never the Ollama URL, never a stack trace.
+- **Local development**: set `OLLAMA_FALLBACK_ENABLED=true` in `.env.local` alongside `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`) and `OLLAMA_MODEL` (default `gemma4:e4b`) to exercise the fallback path against your own locally-running Ollama; see [Environment Variables](#environment-variables).
+- **Production default is fallback disabled.** Localhost Ollama (`127.0.0.1:11434`) is a local-development convenience only — it is never a production deployment capability, and this project does not treat it as one. If a future deployment operates a real, private Ollama server the backend can reach, fallback can be turned on for that deployment by setting `OLLAMA_FALLBACK_ENABLED=true` and pointing `OLLAMA_BASE_URL` at it — no application code changes required. Without that, Gemini quota exhaustion in production surfaces the same friendly `AI_UNAVAILABLE` message, with zero network attempts toward any Ollama address. See [docs/SECURITY_ARCHITECTURE.md](docs/SECURITY_ARCHITECTURE.md).
+- **Same UI regardless of provider**: the response shape (`summary`/`keyPoints`/`mainIdeas`/`improvementSuggestions`) is identical either way — the UI has no idea (and doesn't need to know) which provider actually generated it. Server logs record which one did, via safe structured fields only (e.g. `provider=ollama status=success`) — never document text, prompts, or keys.
 
 ### AI Pipeline
 
@@ -109,7 +134,7 @@ Uses the **Google Gemini API free tier** (`gemini-3.6-flash` by default) — thi
 
 ## Testing
 
-**71 unit/integration tests (Vitest) and 30 end-to-end tests (Playwright, across desktop + mobile viewports) — all passing.** See [docs/TEST_CASES.md](docs/TEST_CASES.md) for the full breakdown and [docs/SECURITY_TEST_REPORT.md](docs/SECURITY_TEST_REPORT.md) for the security-specific matrix (32 tests, several verified live against the real Gemini API, not just mocked).
+**96 unit/integration tests (Vitest) and 30 end-to-end tests (Playwright, across desktop + mobile viewports) — all passing** (up from 71 unit/integration with the addition of `OllamaProvider` and `AIRouter` test suites). See [docs/TEST_CASES.md](docs/TEST_CASES.md) for the full breakdown and [docs/SECURITY_TEST_REPORT.md](docs/SECURITY_TEST_REPORT.md) for the security-specific matrix.
 
 ## Screenshots
 

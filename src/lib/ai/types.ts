@@ -17,8 +17,8 @@ export interface SummarizeInput {
 }
 
 /**
- * Provider-agnostic interface: swapping the underlying model/vendor (OpenAI,
- * Anthropic, a local model) means writing a new class that implements this,
+ * Provider-agnostic interface: swapping the underlying model/vendor (Gemini,
+ * OpenAI, a local model) means writing a new class that implements this,
  * with no change to callers.
  */
 export interface AIProvider {
