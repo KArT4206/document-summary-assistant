@@ -1,6 +1,8 @@
 # Document Summary Assistant
 
-**Live Demo:** _not yet deployed — add the URL here once hosted (see [Deployment](#deployment))_
+> This repository documents the project (description, architecture, security and test reports, screenshots). The source code lives in a private repository, `document-summary-assistant-code`.
+
+**Live Demo:** _not deployed yet_
 
 ## What it does
 
@@ -21,20 +23,9 @@ Upload a PDF or an image (including scanned/photographed pages) and get back an 
 
 Next.js 16 (App Router, TypeScript), Tailwind CSS 4, Google Gemini API (Structured Outputs, free tier), Zod, pdf-parse, tesseract.js. An OpenAI implementation of the same `AIProvider` interface also ships in the codebase (`src/lib/ai/openai-provider.ts`) but is not the active provider — see `src/lib/ai/index.ts`.
 
-## Setup
-
-```bash
-npm install
-cp .env.example .env.local
-# edit .env.local and set GEMINI_API_KEY
-npm run dev
-```
-
-Open http://localhost:3000.
-
 ## Environment Variables
 
-See [`.env.example`](.env.example):
+Configuration is done with environment variables:
 
 | Variable | Required | Description |
 |---|---|---|
@@ -43,18 +34,6 @@ See [`.env.example`](.env.example):
 | `OLLAMA_FALLBACK_ENABLED` | No | Defaults to **disabled** (unset or anything other than the literal string `true`). When disabled, the router never attempts a network call to `OLLAMA_BASE_URL` — not even the availability check. Set to `true` only when `OLLAMA_BASE_URL` genuinely points to a reachable Ollama server: your own machine in local development, or a real private Ollama deployment in production. See [AI Router](#ai-router-gemini-primary-ollama-fallback) below. |
 | `OLLAMA_BASE_URL` | No | Defaults to `http://127.0.0.1:11434`. Only used when `OLLAMA_FALLBACK_ENABLED=true`, and even then only after Gemini indicates quota/rate exhaustion or a transient outage. Server-side only — the browser never calls this URL. |
 | `OLLAMA_MODEL` | No | Defaults to `gemma4:e4b`. |
-
-## Scripts
-
-```bash
-npm run dev       # local dev server
-npm run build     # production build
-npm run start     # run the production build
-npm run lint      # eslint
-npx tsc --noEmit  # typecheck
-npm run test      # unit + integration tests (vitest)
-npm run test:e2e  # end-to-end tests (playwright; builds and runs a production server)
-```
 
 ## Architecture
 
@@ -137,6 +116,14 @@ Uses the **Google Gemini API free tier** (`gemini-3.6-flash` by default) — thi
 **105 unit/integration tests (Vitest) and 30 end-to-end tests (Playwright, across desktop + mobile viewports) — all passing**. See [docs/TEST_CASES.md](docs/TEST_CASES.md) for the full breakdown and [docs/SECURITY_TEST_REPORT.md](docs/SECURITY_TEST_REPORT.md) for the security-specific matrix.
 
 ## Screenshots
+
+| Upload | Processing | Result |
+|---|---|---|
+| ![Upload](docs/screenshots/upload.png) | ![Processing](docs/screenshots/processing.png) | ![Result](docs/screenshots/summary-result.png) |
+
+_Captured from a real local run using the local Ollama provider (model `qwen2.5-coder:7b`), the app's fallback path, since no Gemini key was configured on the capture machine. The sample document is a short original article about urban heat islands._
+
+
 
 Idle state and processing state, captured from a real local run (desktop, 1280px):
 
