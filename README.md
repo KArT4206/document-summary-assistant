@@ -1,5 +1,7 @@
 # Document Summary Assistant
 
+![Last commit](https://img.shields.io/github/last-commit/KArT4206/document-summary-assistant)
+
 > This repository documents the project (description, architecture, security and test reports, screenshots). The source code lives in a private repository, `document-summary-assistant-code`.
 
 **Live Demo:** _not deployed yet_
